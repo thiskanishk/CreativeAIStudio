@@ -214,4 +214,5 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 };
 
-export default AuthProvider; 
+export { AuthProvider };
+export default AuthContext; 

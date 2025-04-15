@@ -3,9 +3,9 @@ import { SessionProvider } from 'next-auth/react';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
 import { ToastContainer } from 'react-toastify';
-import AuthProvider from '@/context/AuthContext';
+import { AuthProvider } from '../context/AuthContext';
 import ThemeContextProvider from '../context/ThemeContext';
-import '@/styles/globals.css';
+import '../styles/globals.css';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Create React Query client

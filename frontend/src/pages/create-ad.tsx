@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { 
@@ -14,13 +14,19 @@ import {
   LinearProgress,
   Fade,
   Backdrop,
-  CircularProgress
+  CircularProgress,
+  Button
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import AdCreationForm from '../components/forms/AdCreationForm';
+// Create a temporary TemplateGallery component since the import is missing
+import { AdTemplate } from '../data/templates';
+const TemplateGallery: React.FC<{ onSelectTemplate: (template: AdTemplate) => void }> = ({ onSelectTemplate }) => (
+  <div>Template Gallery Component</div>
+);
 import { useAds } from '../hooks/useAds';
 
 // Define our local interface for form data
@@ -61,9 +67,53 @@ const CreateAdPage = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [processingState, setProcessingState] = useState<'idle' | 'uploading' | 'generating' | 'success'>('idle');
   const [progressValue, setProgressValue] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [selectedTemplate, setSelectedTemplate] = useState<AdTemplate | null>(null);
+  const [initialFormValues, setInitialFormValues] = useState<Partial<AdFormData>>({});
+  
+  // Get the templateId from URL query params
+  const { templateId } = router.query;
   
   // Get the createAd function from our hook
   const { createAd, isCreatingAd } = useAds();
+
+  // Set up steps for the stepper
+  const steps = ['Select Template', 'Customize Ad', 'Review & Create'];
+
+  // If templateId is provided in the URL, skip to the customize step
+  useEffect(() => {
+    if (templateId && typeof templateId === 'string') {
+      // Logic to fetch and set the selected template based on templateId
+      // This would typically be handled by a function from your templates service
+      import('../data/templates').then(({ getTemplateById }) => {
+        const template = getTemplateById(templateId);
+        if (template) {
+          handleSelectTemplate(template);
+          setCurrentStep(1); // Skip to customize step
+        }
+      });
+    }
+  }, [templateId]);
+
+  // Handle template selection
+  const handleSelectTemplate = (template: AdTemplate) => {
+    setSelectedTemplate(template);
+    
+    // Pre-populate form with template settings
+    if (template.settings) {
+      setInitialFormValues({
+        adStyle: template.settings.adStyle || '',
+        adFormat: template.settings.adFormat || '',
+        title: template.settings.titleSuggestions?.[0] || '',
+        description: template.settings.descriptionSuggestions?.[0] || '',
+        callToAction: template.settings.callToAction || '',
+        primaryColor: template.settings.primaryColor || '#1877F2',
+      });
+    }
+    
+    // Move to next step
+    setCurrentStep(1);
+  };
 
   const handleSubmit = async (formData: AdFormData) => {
     setError(null);
@@ -73,6 +123,9 @@ const CreateAdPage = () => {
         setError('Please upload an image or video file');
         return;
       }
+      
+      // Set to review step
+      setCurrentStep(2);
       
       // Start the upload/creation process simulation
       setProcessingState('uploading');
@@ -114,9 +167,10 @@ const CreateAdPage = () => {
             adStyle: formData.adStyle,
             adFormat: formData.adFormat,
             primaryColor: formData.primaryColor,
-            isVideo: formData.isVideo
+            isVideo: formData.isVideo,
+            templateId: selectedTemplate?.id // Pass the template ID if one was selected
           }, 
-          mediaFile: formData.imageFile 
+          mediaFile: formData.imageFile as File
         })
           .then(newAd => {
             // Show success state and cleanup
@@ -151,6 +205,9 @@ const CreateAdPage = () => {
       if (window.confirm('Are you sure you want to leave? Your ad creation will be cancelled.')) {
         router.back();
       }
+    } else if (currentStep > 0) {
+      // Go back to previous step
+      setCurrentStep(currentStep - 1);
     } else {
       router.back();
     }
@@ -165,6 +222,9 @@ const CreateAdPage = () => {
   const renderProcessingOverlay = () => {
     if (processingState === 'idle') return null;
     
+    // Boolean to control Backdrop visibility
+    const isProcessing = processingState === 'uploading' || processingState === 'generating' || processingState === 'success';
+    
     return (
       <Backdrop
         sx={{ 
@@ -173,7 +233,7 @@ const CreateAdPage = () => {
           flexDirection: 'column',
           color: 'white'
         }}
-        open={processingState !== 'idle'}
+        open={isProcessing}
       >
         {processingState === 'success' ? (
           <motion.div
@@ -214,6 +274,75 @@ const CreateAdPage = () => {
     );
   };
 
+  // Render content based on current step
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <Paper elevation={0} className="p-6 mb-6">
+                <TemplateGallery onSelectTemplate={handleSelectTemplate} />
+              </Paper>
+            </motion.div>
+          </motion.div>
+        );
+      case 1:
+        return (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <Paper elevation={0} className="p-6 mb-6">
+                {selectedTemplate && (
+                  <Box mb={4}>
+                    <Typography variant="h6" gutterBottom>
+                      Template: {selectedTemplate.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedTemplate.description}
+                    </Typography>
+                  </Box>
+                )}
+                <AdCreationForm 
+                  onSubmit={handleSubmit} 
+                  isSubmitting={isCreatingAd} 
+                  initialData={initialFormValues}
+                />
+              </Paper>
+            </motion.div>
+          </motion.div>
+        );
+      case 2:
+        return (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <Paper elevation={0} className="p-6 mb-6 text-center">
+                <Typography variant="h5" gutterBottom>
+                  Creating Your Ad
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Please wait while we process your ad...
+                </Typography>
+              </Paper>
+            </motion.div>
+          </motion.div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       <Head>
@@ -243,108 +372,38 @@ const CreateAdPage = () => {
           </Container>
         </Box>
 
-        {/* Main content */}
-        <Container maxWidth="lg" className="py-6">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {/* Introduction */}
-            <motion.div variants={itemVariants}>
-              <Paper className="p-6 mb-6">
-                <Typography variant="h6" className="mb-2 font-medium">
-                  Let's create your Facebook ad
-                </Typography>
-                <Typography variant="body1" color="textSecondary" className="mb-4">
-                  Follow the steps below to create a professional Facebook ad using our AI tools. 
-                  You'll be able to upload your image or video, customize the content, and choose 
-                  your preferred style.
-                </Typography>
-                <Alert severity="info" className="mb-2">
-                  For best results, use high-quality images and clear, concise ad copy.
-                </Alert>
-              </Paper>
-            </motion.div>
-
-            {/* Form */}
-            <motion.div variants={itemVariants}>
-              <Paper className="p-6 mb-6">
-                <AdCreationForm 
-                  onSubmit={handleSubmit}
-                  isSubmitting={processingState !== 'idle'}
-                />
-              </Paper>
-            </motion.div>
-            
-            {/* Tips and guidelines */}
-            <motion.div variants={itemVariants}>
-              <Paper className="p-6">
-                <Typography variant="h6" className="mb-3 font-medium">
-                  Tips for effective Facebook ads
-                </Typography>
-                <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Box>
-                    <Typography variant="subtitle2" color="primary" className="mb-1">
-                      Keep it simple
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Clear, concise messaging performs better than complicated ads.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" color="primary" className="mb-1">
-                      Focus on benefits
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Tell people how your product or service will help them.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" color="primary" className="mb-1">
-                      Use high-quality visuals
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Sharp, well-lit images or videos capture attention better.
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" color="primary" className="mb-1">
-                      Include a clear call-to-action
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Tell people exactly what you want them to do next.
-                    </Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            </motion.div>
-          </motion.div>
+        {/* Stepper */}
+        <Container maxWidth="lg" className="py-4">
+          <Stepper activeStep={currentStep} alternativeLabel>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
         </Container>
-      </Box>
 
-      {/* Success/Error messages */}
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={successMessage}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        ContentProps={{
-          className: "bg-green-600"
-        }}
-      />
-      
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        message={error}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        ContentProps={{
-          className: "bg-red-600"
-        }}
-      />
+        {/* Main content */}
+        <Container maxWidth="lg" className="py-4">
+          {renderStepContent()}
+        </Container>
+        
+        {/* Error and success messages */}
+        <Snackbar 
+          open={!!error || !!successMessage} 
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={error ? "error" : "success"} 
+            sx={{ width: '100%' }}
+          >
+            {error || successMessage}
+          </Alert>
+        </Snackbar>
+      </Box>
     </>
   );
 };

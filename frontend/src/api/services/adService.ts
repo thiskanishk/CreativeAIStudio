@@ -23,6 +23,7 @@ export interface AdCreationInput {
   adFormat: string;
   primaryColor: string;
   isVideo: boolean;
+  templateId?: string;
 }
 
 class AdService {
