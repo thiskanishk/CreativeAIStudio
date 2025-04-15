@@ -15,7 +15,7 @@ const ReactQueryDevtoolsComponent = dynamic(
   { ssr: false }
 );
 
-// Create React Query client
+// Create React Query client with performance optimizations
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -36,6 +36,8 @@ export default function App({
         <ThemeContextProvider>
           <AuthProvider>
             <Component {...pageProps} />
+            
+            {/* Enhanced Toast Container */}
             <ToastContainer
               position="bottom-right"
               autoClose={5000}
@@ -46,6 +48,15 @@ export default function App({
               pauseOnFocusLoss
               draggable
               pauseOnHover
+              theme="light"
+              style={{
+                zIndex: 9999,
+                minWidth: '300px'
+              }}
+              toastStyle={{
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              }}
             />
           </AuthProvider>
         </ThemeContextProvider>

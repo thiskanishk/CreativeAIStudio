@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from 'react-query';
 import { useCallback, useMemo } from 'react';
 import adService, { AdData, AdCreationInput } from '../api/services/adService';
-import { toast } from 'react-toastify';
+import FeedbackToast from '../components/ui/FeedbackToast';
 
 // Types for API errors
 interface ApiError {
@@ -42,7 +42,7 @@ export function useAds() {
     cacheTime: defaultCacheTime,
     retry: 2,
     onError: (error: unknown) => {
-      toast.error(formatError(error));
+      FeedbackToast.error(formatError(error), 'Error Loading Ads');
     },
   });
 
@@ -54,7 +54,7 @@ export function useAds() {
       cacheTime: defaultCacheTime,
       retry: 2,
       onError: (error: unknown) => {
-        toast.error(`Error fetching ad: ${formatError(error)}`);
+        FeedbackToast.error(formatError(error), 'Error Loading Ad');
       },
     });
   }, [adQueryKey, defaultStaleTime, defaultCacheTime]);
@@ -71,10 +71,10 @@ export function useAds() {
       onSuccess: (newAd) => {
         // Update the ads cache
         queryClient.invalidateQueries(adsQueryKey);
-        toast.success('Ad created successfully!');
+        FeedbackToast.success('Ad created successfully!', 'Success');
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Ad Creation Failed');
       },
     }
   );
@@ -92,10 +92,10 @@ export function useAds() {
         // Update the ads cache
         queryClient.invalidateQueries(adsQueryKey);
         queryClient.invalidateQueries(adQueryKey(updatedAd.id));
-        toast.success('Ad updated successfully!');
+        FeedbackToast.success('Ad updated successfully!', 'Update Success');
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Update Failed');
       },
     }
   );
@@ -113,10 +113,10 @@ export function useAds() {
         // Update the ads cache
         queryClient.invalidateQueries(adsQueryKey);
         queryClient.removeQueries(adQueryKey(id));
-        toast.success('Ad deleted successfully!');
+        FeedbackToast.success('Ad deleted successfully!', 'Ad Deleted');
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Deletion Failed');
       },
     }
   );
@@ -133,10 +133,13 @@ export function useAds() {
       onSuccess: (variations, {id}) => {
         // Update the specific ad cache
         queryClient.invalidateQueries(adQueryKey(id));
-        toast.success('Ad variations generated successfully!');
+        FeedbackToast.success(
+          `${variations.length} ad variations generated successfully!`, 
+          'Variations Created'
+        );
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Variation Generation Failed');
       },
     }
   );
@@ -166,15 +169,15 @@ export function useAds() {
             a.remove();
           }, 100);
           
-          toast.success('Ad downloaded successfully!');
+          FeedbackToast.success('Ad downloaded successfully!', 'Download Complete');
         } catch (err) {
           console.error('Error processing download:', err);
-          toast.error('Download failed');
+          FeedbackToast.error('Download failed', 'Error');
           throw err;
         }
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Download Failed');
       },
     }
   );
@@ -192,14 +195,17 @@ export function useAds() {
         try {
           // Copy share URL to clipboard
           navigator.clipboard.writeText(result.shareUrl);
-          toast.success('Share link copied to clipboard!');
+          FeedbackToast.success('Share link copied to clipboard!', 'Ad Shared');
         } catch (err) {
           console.error('Error copying to clipboard:', err);
-          toast.warning('Could not copy to clipboard automatically. URL: ' + result.shareUrl);
+          FeedbackToast.warning(
+            `Could not copy to clipboard automatically. URL: ${result.shareUrl}`,
+            'Manual Copy Required'
+          );
         }
       },
       onError: (error) => {
-        toast.error(formatError(error));
+        FeedbackToast.error(formatError(error), 'Sharing Failed');
       },
     }
   );
