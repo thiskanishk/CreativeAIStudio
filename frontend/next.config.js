@@ -18,12 +18,14 @@ const nextConfig = {
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_FACEBOOK_APP_ID: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
   },
-  // This is required for API routes with large file uploads
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
+  serverRuntimeConfig: {
+    // This is required for API routes with large file uploads
+    api: {
+      bodyParser: {
+        sizeLimit: '50mb',
+      },
+      responseLimit: '50mb',
     },
-    responseLimit: '50mb',
   },
   // Use gzip compression for better performance
   compress: true,
