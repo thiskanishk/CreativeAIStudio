@@ -307,7 +307,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({
                     )}
                     
                     <Button 
-                      variant="outline" 
+                      variant="outlined" 
                       color="primary" 
                       startIcon={<CloudUploadIcon />}
                       className="mt-4"
@@ -628,7 +628,7 @@ const AdCreationForm: React.FC<AdCreationFormProps> = ({
           <Button 
             onClick={handleBack} 
             disabled={activeStep === 0}
-            variant="outline"
+            variant="outlined"
           >
             Back
           </Button>

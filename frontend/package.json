@@ -15,6 +15,7 @@
     "@mui/icons-material": "^5.11.16",
     "@mui/material": "^5.13.0",
     "axios": "^1.4.0",
+    "dompurify": "^3.2.5",
     "formik": "^2.2.9",
     "framer-motion": "^12.7.3",
     "jwt-decode": "^3.1.2",

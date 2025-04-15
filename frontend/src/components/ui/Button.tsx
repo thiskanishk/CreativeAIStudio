@@ -1,10 +1,14 @@
 import React from 'react';
 import { Button as MuiButton, ButtonProps as MuiButtonProps, CircularProgress } from '@mui/material';
 
-export interface ButtonProps extends Omit<MuiButtonProps, 'size'> {
+type CustomVariant = 'primary' | 'secondary' | 'outlined' | 'text';
+type CustomSize = 'small' | 'medium' | 'large';
+
+// Completely omit the 'variant' and 'size' props from MuiButtonProps
+export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size'> {
   isLoading?: boolean;
-  size?: 'small' | 'medium' | 'large';
-  variant?: 'primary' | 'secondary' | 'outline' | 'text';
+  size?: CustomSize;
+  variant?: CustomVariant;
   fullWidth?: boolean;
 }
 
@@ -33,7 +37,7 @@ const Button: React.FC<ButtonProps> = ({
           variant: 'contained' as const,
           className: 'bg-white text-primary-600 hover:bg-gray-100',
         };
-      case 'outline':
+      case 'outlined':
         return {
           variant: 'outlined' as const,
           className: 'border-primary-600 text-primary-600 hover:bg-primary-50',
