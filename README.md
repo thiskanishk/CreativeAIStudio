@@ -61,7 +61,8 @@ facebook-ad-creator/
 
 3. Create `.env` file with your environment variables:
    ```
-   PORT=5000
+   PORT=3001
+   NODE_ENV=development
    MONGODB_URI=your_mongodb_connection_string
    JWT_SECRET=your_jwt_secret
    OPENAI_API_KEY=your_openai_api_key
@@ -92,9 +93,11 @@ facebook-ad-creator/
 
 3. Create `.env.local` file with environment variables:
    ```
-   NEXT_PUBLIC_API_URL=http://localhost:5000/api
+   NEXT_PUBLIC_API_URL=http://localhost:3001/api
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
    NEXT_PUBLIC_FACEBOOK_APP_ID=your_facebook_app_id
+   NEXTAUTH_URL=http://localhost:3000
+   NEXTAUTH_SECRET=your_nextauth_secret
    ```
 
 4. Start the development server:
