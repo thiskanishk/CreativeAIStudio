@@ -1,200 +1,161 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { ThemeProvider as MuiThemeProvider, createTheme, Theme, PaletteMode } from '@mui/material/styles';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import { 
+  ThemeProvider, 
+  createTheme, 
+  ThemeOptions 
+} from '@mui/material/styles';
+import type { PaletteMode } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 
-// Define theme settings
-const lightTheme = {
-  primary: {
-    main: '#6366f1', // primary-500 from Tailwind
-    light: '#818cf8',
-    dark: '#4f46e5',
-  },
-  secondary: {
-    main: '#64748b', // secondary-500 from Tailwind
-    light: '#94a3b8',
-    dark: '#475569',
-  },
-  success: {
-    main: '#10b981', // success-500 from Tailwind
-  },
-  error: {
-    main: '#ef4444', // error-500 from Tailwind
-  },
-  background: {
-    default: '#f9fafb', // gray-50 from Tailwind
-    paper: '#ffffff',
-  },
-  text: {
-    primary: '#1f2937', // gray-800 from Tailwind
-    secondary: '#4b5563', // gray-600 from Tailwind
-  }
-};
-
-const darkTheme = {
-  primary: {
-    main: '#818cf8', // Lighter shade for dark mode
-    light: '#a5b4fc',
-    dark: '#4f46e5',
-  },
-  secondary: {
-    main: '#94a3b8', // secondary-400 from Tailwind
-    light: '#cbd5e1',
-    dark: '#64748b',
-  },
-  success: {
-    main: '#34d399', // success-400 from Tailwind
-  },
-  error: {
-    main: '#f87171', // error-400 from Tailwind
-  },
-  background: {
-    default: '#111827', // gray-900 from Tailwind
-    paper: '#1f2937', // gray-800 from Tailwind
-  },
-  text: {
-    primary: '#f9fafb', // gray-50 from Tailwind
-    secondary: '#e5e7eb', // gray-200 from Tailwind
-  }
-};
-
-// Theme context
-type ThemeContextType = {
+// Theme context type
+interface ThemeContextType {
   mode: PaletteMode;
   toggleColorMode: () => void;
-  theme: Theme;
+}
+
+// Create the context with a default value
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+// Custom hook to use the theme context
+export const useThemeContext = () => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useThemeContext must be used within a ThemeContextProvider');
+  }
+  return context;
 };
 
-const ThemeContext = createContext<ThemeContextType>({
-  mode: 'light',
-  toggleColorMode: () => {},
-  theme: createTheme(),
+// Get theme design tokens based on mode
+const getDesignTokens = (mode: PaletteMode): ThemeOptions => ({
+  palette: {
+    mode,
+    ...(mode === 'light'
+      ? {
+          // Light mode palette
+          primary: {
+            main: '#1877F2',
+            light: '#4791db',
+            dark: '#115293',
+            contrastText: '#fff',
+          },
+          secondary: {
+            main: '#E74C3C',
+            light: '#ec7063',
+            dark: '#a13429',
+            contrastText: '#fff',
+          },
+          background: {
+            default: '#F5F7FA',
+            paper: '#FFFFFF',
+          },
+        }
+      : {
+          // Dark mode palette
+          primary: {
+            main: '#1877F2',
+            light: '#4791db',
+            dark: '#115293',
+            contrastText: '#fff',
+          },
+          secondary: {
+            main: '#E74C3C',
+            light: '#ec7063',
+            dark: '#a13429',
+            contrastText: '#fff',
+          },
+          background: {
+            default: '#121212',
+            paper: '#1E1E1E',
+          },
+        }),
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: {
+      fontWeight: 700,
+    },
+    h2: {
+      fontWeight: 700,
+    },
+    h3: {
+      fontWeight: 600,
+    },
+    h4: {
+      fontWeight: 600,
+    },
+    h5: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 600,
+    },
+  },
+  shape: {
+    borderRadius: 8,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: 8,
+          padding: '8px 16px',
+        },
+      },
+    },
+  },
 });
 
-// Hook to use the theme context
-export const useThemeContext = () => useContext(ThemeContext);
-
 // Theme provider component
-export const ThemeContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ThemeContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Try to get the theme mode from localStorage
   const [mode, setMode] = useState<PaletteMode>('light');
 
   // Effect to load the theme mode from localStorage on initial render
   useEffect(() => {
-    const savedMode = localStorage.getItem('themeMode') as PaletteMode | null;
-    if (savedMode) {
-      setMode(savedMode);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      // Use user's system preference as fallback
-      setMode('dark');
-    }
+    let isMounted = true;
+    
+    const loadTheme = () => {
+      const savedMode = localStorage.getItem('themeMode') as PaletteMode | null;
+      if (savedMode && isMounted) {
+        setMode(savedMode);
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches && isMounted) {
+        // Use user's system preference as fallback
+        setMode('dark');
+      }
+    };
+    
+    loadTheme();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Toggle theme function
-  const toggleColorMode = () => {
-    setMode((prevMode) => {
+  // Toggle theme function - memoized with useCallback
+  const toggleColorMode = useCallback(() => {
+    setMode((prevMode: PaletteMode) => {
       const newMode = prevMode === 'light' ? 'dark' : 'light';
       localStorage.setItem('themeMode', newMode);
       return newMode;
     });
-  };
+  }, []);
 
-  // Create theme based on the current mode
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          ...(mode === 'light' ? lightTheme : darkTheme),
-        },
-        typography: {
-          fontFamily: '"Inter", sans-serif',
-          h1: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 700,
-          },
-          h2: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 700,
-          },
-          h3: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 700,
-          },
-          h4: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 600,
-          },
-          h5: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 600,
-          },
-          h6: {
-            fontFamily: '"Poppins", sans-serif',
-            fontWeight: 600,
-          },
-        },
-        shape: {
-          borderRadius: 8,
-        },
-        components: {
-          MuiButton: {
-            styleOverrides: {
-              root: {
-                textTransform: 'none',
-                borderRadius: '0.375rem',
-                fontWeight: 500,
-              },
-            },
-          },
-          MuiPaper: {
-            styleOverrides: {
-              root: {
-                backgroundImage: 'none',
-              },
-            },
-          },
-          MuiAppBar: {
-            styleOverrides: {
-              root: {
-                boxShadow: mode === 'light' 
-                  ? '0 1px 3px rgba(0,0,0,0.1)' 
-                  : '0 1px 3px rgba(0,0,0,0.3)',
-                backgroundImage: 'none',
-              },
-            },
-          },
-          MuiCssBaseline: {
-            styleOverrides: {
-              body: {
-                scrollbarWidth: 'thin',
-                '&::-webkit-scrollbar': {
-                  width: '0.4rem',
-                  height: '0.4rem',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: mode === 'light' ? '#f1f1f1' : '#374151',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: mode === 'light' ? '#888' : '#6B7280',
-                  borderRadius: '0.25rem',
-                },
-                '&::-webkit-scrollbar-thumb:hover': {
-                  background: mode === 'light' ? '#555' : '#9CA3AF',
-                },
-              },
-            },
-          },
-        },
-      }),
-    [mode]
-  );
+  // Create the theme based on current mode - memoized with useMemo
+  const theme = useMemo(() => createTheme(getDesignTokens(mode)), [mode]);
+  
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    mode,
+    toggleColorMode,
+  }), [mode, toggleColorMode]);
 
   return (
-    <ThemeContext.Provider value={{ mode, toggleColorMode, theme }}>
-      <MuiThemeProvider theme={theme}>
+    <ThemeContext.Provider value={contextValue}>
+      <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}
-      </MuiThemeProvider>
+      </ThemeProvider>
     </ThemeContext.Provider>
   );
 };
