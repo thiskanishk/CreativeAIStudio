@@ -1,62 +1,54 @@
-const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 300 }); // Default TTL: 5 minutes
+// Simple in-memory cache store
+const cache = {};
 
 /**
- * Middleware for caching API responses
- * @param {number} ttl - Time to live in seconds
+ * Creates a caching middleware
+ * @param {number} duration - Cache duration in seconds
  * @returns {Function} Express middleware
  */
-const cacheMiddleware = (ttl = 300) => {
+const cacheMiddleware = (duration = 60) => {
   return (req, res, next) => {
-    // Skip caching for non-GET requests or authenticated routes that are user-specific
-    if (req.method !== 'GET' || req.path.includes('/users/me')) {
+    // Only cache GET requests
+    if (req.method !== 'GET') {
       return next();
     }
 
-    // Create a cache key based on the request path and query parameters
-    const cacheKey = `${req.originalUrl || req.url}`;
-    
-    // Check if data exists in cache
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-      // Add cache-specific headers
-      res.set('X-Cache', 'HIT');
-      return res.json(cachedData);
+    const key = req.originalUrl;
+    const cachedResponse = cache[key];
+
+    // If cache hit and not expired, return cached response
+    if (cachedResponse && cachedResponse.expiresAt > Date.now()) {
+      return res.json(cachedResponse.data);
     }
 
-    // Store the original send function
-    const originalSend = res.json;
-    
-    // Override the send function to cache the response before sending
+    // Store original res.json method
+    const originalJson = res.json;
+
+    // Override res.json method to cache the response
     res.json = function(data) {
-      // Only cache successful responses
-      if (res.statusCode < 400) {
-        cache.set(cacheKey, data, ttl);
-      }
-      // Add cache-specific headers
-      res.set('X-Cache', 'MISS');
-      // Call the original send function
-      originalSend.call(this, data);
+      // Store response in cache
+      cache[key] = {
+        data,
+        expiresAt: Date.now() + (duration * 1000)
+      };
+
+      // Call the original json method
+      return originalJson.call(this, data);
     };
-    
+
     next();
   };
 };
 
-/**
- * Clear cache for a specific key pattern
- * @param {string} pattern - Key pattern to match
- */
-const clearCache = (pattern) => {
-  if (!pattern) return;
-  
-  const keys = cache.keys();
-  
-  keys.forEach(key => {
-    if (key.includes(pattern)) {
-      cache.del(key);
-    }
-  });
+// Helper to clear cache
+const clearCache = (key) => {
+  if (key) {
+    delete cache[key];
+  } else {
+    Object.keys(cache).forEach(k => {
+      delete cache[k];
+    });
+  }
 };
 
 module.exports = {
