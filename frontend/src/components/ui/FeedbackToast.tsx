@@ -1,5 +1,5 @@
 import React from 'react';
-import { toast, ToastOptions, Id } from 'react-toastify';
+import { toast, ToastOptions, ToastContentProps, Id, ToastPosition } from 'react-toastify';
 import { Box, Typography, IconButton, Paper } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -19,7 +19,7 @@ interface ToastProps {
 
 // Default toast configuration
 const defaultToastOptions: ToastOptions = {
-  position: 'bottom-right',
+  position: 'bottom-right' as ToastPosition,
   autoClose: 5000,
   hideProgressBar: false,
   closeOnClick: true,
@@ -30,7 +30,12 @@ const defaultToastOptions: ToastOptions = {
 };
 
 // Custom toast component for better UI
-const ToastContent: React.FC<ToastProps & { toastId: Id }> = ({ type, title, message, toastId }) => {
+const ToastContent = ({ 
+  type, 
+  title, 
+  message, 
+  toastProps 
+}: ToastProps & { toastProps: any }) => {
   // Configure icon based on type
   const getIcon = () => {
     switch (type) {
@@ -90,7 +95,7 @@ const ToastContent: React.FC<ToastProps & { toastId: Id }> = ({ type, title, mes
       <IconButton
         size="small"
         aria-label="close"
-        onClick={() => toast.dismiss(toastId)}
+        onClick={() => toast.dismiss(toastProps.toastId)}
         sx={{ ml: 1, mt: -0.5 }}
       >
         <CloseIcon fontSize="small" />
@@ -116,7 +121,7 @@ export const FeedbackToast = {
         type="success"
         title={title}
         message={message}
-        toastId={props.toastId}
+        toastProps={props}
       />
     ), {
       ...defaultToastOptions,
@@ -137,7 +142,7 @@ export const FeedbackToast = {
         type="error"
         title={title}
         message={message}
-        toastId={props.toastId}
+        toastProps={props}
       />
     ), {
       ...defaultToastOptions,
@@ -159,7 +164,7 @@ export const FeedbackToast = {
         type="info"
         title={title}
         message={message}
-        toastId={props.toastId}
+        toastProps={props}
       />
     ), {
       ...defaultToastOptions,
@@ -180,7 +185,7 @@ export const FeedbackToast = {
         type="warning"
         title={title}
         message={message}
-        toastId={props.toastId}
+        toastProps={props}
       />
     ), {
       ...defaultToastOptions,
@@ -205,7 +210,7 @@ export const FeedbackToast = {
           type={type}
           title={title}
           message={message}
-          toastId={props.toastId}
+          toastProps={props}
         />
       ),
       ...options,
