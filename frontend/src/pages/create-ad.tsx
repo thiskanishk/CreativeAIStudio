@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { 
@@ -21,7 +21,8 @@ import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-import AdCreationForm from '../components/forms/AdCreationForm';
+// Lazy load components to improve initial load time
+const AdCreationForm = lazy(() => import('../components/forms/AdCreationForm'));
 // Create a temporary TemplateGallery component since the import is missing
 import { AdTemplate } from '../data/templates';
 const TemplateGallery: React.FC<{ onSelectTemplate: (template: AdTemplate) => void }> = ({ onSelectTemplate }) => (
@@ -41,7 +42,7 @@ interface AdFormData {
   isVideo: boolean;
 }
 
-// Animation variants
+// Animation variants - define outside component to prevent recreation
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -77,15 +78,19 @@ const CreateAdPage = () => {
   // Get the createAd function from our hook
   const { createAd, isCreatingAd } = useAds();
 
-  // Set up steps for the stepper
-  const steps = ['Select Template', 'Customize Ad', 'Review & Create'];
+  // Memoize steps to prevent re-creation on each render
+  const steps = useMemo(() => ['Select Template', 'Customize Ad', 'Review & Create'], []);
 
   // If templateId is provided in the URL, skip to the customize step
   useEffect(() => {
+    let isMounted = true;
+    
     if (templateId && typeof templateId === 'string') {
       // Logic to fetch and set the selected template based on templateId
       // This would typically be handled by a function from your templates service
       import('../data/templates').then(({ getTemplateById }) => {
+        if (!isMounted) return;
+        
         const template = getTemplateById(templateId);
         if (template) {
           handleSelectTemplate(template);
@@ -93,10 +98,14 @@ const CreateAdPage = () => {
         }
       });
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [templateId]);
 
-  // Handle template selection
-  const handleSelectTemplate = (template: AdTemplate) => {
+  // Handle template selection with useCallback to avoid recreation on each render
+  const handleSelectTemplate = useCallback((template: AdTemplate) => {
     setSelectedTemplate(template);
     
     // Pre-populate form with template settings
@@ -113,9 +122,9 @@ const CreateAdPage = () => {
     
     // Move to next step
     setCurrentStep(1);
-  };
+  }, []);
 
-  const handleSubmit = async (formData: AdFormData) => {
+  const handleSubmit = useCallback(async (formData: AdFormData) => {
     setError(null);
     
     try {
@@ -197,9 +206,9 @@ const CreateAdPage = () => {
       setError('Failed to create ad. Please try again.');
       setProcessingState('idle');
     }
-  };
+  }, [createAd, router, selectedTemplate]);
 
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     if (processingState !== 'idle') {
       // Show a confirmation dialog if the user tries to leave during processing
       if (window.confirm('Are you sure you want to leave? Your ad creation will be cancelled.')) {
@@ -211,14 +220,14 @@ const CreateAdPage = () => {
     } else {
       router.back();
     }
-  };
+  }, [processingState, currentStep, router]);
 
-  const handleCloseSnackbar = () => {
+  const handleCloseSnackbar = useCallback(() => {
     setSuccessMessage(null);
     setError(null);
-  };
+  }, []);
 
-  // Render the processing overlay
+  // Render the processing overlay - using a regular function
   const renderProcessingOverlay = () => {
     if (processingState === 'idle') return null;
     
@@ -310,11 +319,13 @@ const CreateAdPage = () => {
                     </Typography>
                   </Box>
                 )}
-                <AdCreationForm 
-                  onSubmit={handleSubmit} 
-                  isSubmitting={isCreatingAd} 
-                  initialData={initialFormValues}
-                />
+                <Suspense fallback={<Box sx={{ textAlign: 'center', p: 4 }}><CircularProgress /></Box>}>
+                  <AdCreationForm 
+                    onSubmit={handleSubmit} 
+                    isSubmitting={isCreatingAd} 
+                    initialData={initialFormValues}
+                  />
+                </Suspense>
               </Paper>
             </motion.div>
           </motion.div>

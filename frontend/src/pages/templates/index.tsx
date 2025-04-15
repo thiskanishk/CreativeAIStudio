@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Container, 
   Typography, 
@@ -28,7 +28,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div>{children}</div>
 );
 import TemplateCard from '../../components/ui/TemplateCard';
-import { templates, AdTemplate } from '../../data/templates';
+import { templates as allTemplates, AdTemplate } from '../../data/templates';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Head from 'next/head';
@@ -46,26 +46,30 @@ const TemplateGallery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [templates, setTemplates] = useState<AdTemplate[]>([]);
+  const [filteredTemplates, setFilteredTemplates] = useState<AdTemplate[]>([]);
   const [previewTemplate, setPreviewTemplate] = useState<AdTemplate | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Mock user subscription status - in a real app, this would come from an auth context
   const isSubscribed = false;
 
-  // Get all unique categories from templates
-  const categories = ['all', ...Array.from(new Set(templates.map(t => t.category)))];
+  // Use useMemo for derived values to avoid recalculations on every render
+  const categories = useMemo(() => {
+    return ['all', ...Array.from(new Set(allTemplates.map(t => t.category)))];
+  }, []);
   
-  // Create category tabs with counts
-  const categoryTabs: CategoryTabProps[] = categories.map(cat => ({
-    label: cat === 'all' ? 'All Templates' : cat.charAt(0).toUpperCase() + cat.slice(1),
-    value: cat,
-    count: cat === 'all' ? templates.length : templates.filter(t => t.category === cat).length
-  }));
+  // Create category tabs with counts using useMemo
+  const categoryTabs: CategoryTabProps[] = useMemo(() => {
+    return categories.map(cat => ({
+      label: cat === 'all' ? 'All Templates' : cat.charAt(0).toUpperCase() + cat.slice(1),
+      value: cat,
+      count: cat === 'all' ? allTemplates.length : allTemplates.filter(t => t.category === cat).length
+    }));
+  }, [categories]);
 
-  // Filter and sort templates based on current selections
+  // Memoize the filter function to prevent unnecessary recalculations
   useEffect(() => {
-    let filtered = [...templates];
+    let filtered = [...allTemplates];
     
     // Filter by category
     if (category !== 'all') {
@@ -78,7 +82,7 @@ const TemplateGallery: React.FC = () => {
       filtered = filtered.filter(t => 
         t.name.toLowerCase().includes(query) || 
         t.description.toLowerCase().includes(query) ||
-        t.tags.some(tag => tag.toLowerCase().includes(query))
+        (t.tags || []).some(tag => tag.toLowerCase().includes(query))
       );
     }
     
@@ -90,17 +94,18 @@ const TemplateGallery: React.FC = () => {
         break;
       case 'popular':
         // In a real app, this would sort by popularity metrics
-        filtered = [...filtered].sort((a, b) => (b.tags.length - a.tags.length));
+        filtered = [...filtered].sort((a, b) => ((b.tags || []).length - (a.tags || []).length));
         break;
       case 'alphabetical':
         filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
         break;
     }
     
-    setTemplates(filtered);
-  }, [category, searchQuery, sortBy, templates]);
+    setFilteredTemplates(filtered);
+  }, [category, searchQuery, sortBy]);
 
-  const handleSelectTemplate = (template: AdTemplate) => {
+  // Memoize callback functions passed as props
+  const handleSelectTemplate = useCallback((template: AdTemplate) => {
     // Navigate to the ad creation page with the selected template
     router.push({
       pathname: '/create-ad',
@@ -108,16 +113,16 @@ const TemplateGallery: React.FC = () => {
         templateId: template.id
       }
     });
-  };
+  }, [router]);
 
-  const handlePreviewTemplate = (template: AdTemplate) => {
+  const handlePreviewTemplate = useCallback((template: AdTemplate) => {
     setPreviewTemplate(template);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const closePreviewModal = () => {
+  const closePreviewModal = useCallback(() => {
     setIsModalOpen(false);
-  };
+  }, []);
 
   return (
     <Layout>
@@ -249,8 +254,8 @@ const TemplateGallery: React.FC = () => {
         
         {/* Template Grid */}
         <Grid container spacing={3}>
-          {templates.length > 0 ? (
-            templates.map(template => (
+          {filteredTemplates.length > 0 ? (
+            filteredTemplates.map((template: AdTemplate) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={template.id}>
                 <TemplateCard
                   template={template}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import jwt_decode from 'jwt-decode';
@@ -55,11 +55,29 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   
-  // API URL from environment
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  // API URL from environment - memoize to prevent recreation
+  const API_URL = useMemo(() => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api', []);
+  
+  // Memoize refreshUserData to prevent recreation on each render
+  const refreshUserData = useCallback(async (token: string) => {
+    try {
+      const response = await axios.get(`${API_URL}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  }, [API_URL]);
   
   // Initialize auth state from local storage
   useEffect(() => {
+    let isMounted = true;
+    
     const initializeAuth = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -73,11 +91,11 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Token is expired, log out
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            setUser(null);
+            if (isMounted) setUser(null);
           } else {
             // Token is valid, set user
             const userJson = localStorage.getItem('user');
-            if (userJson) {
+            if (userJson && isMounted) {
               const userData = JSON.parse(userJson);
               setUser(userData);
               
@@ -91,31 +109,19 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     
     initializeAuth();
-  }, []);
-  
-  // Refresh user data from backend
-  const refreshUserData = async (token: string) => {
-    try {
-      const response = await axios.get(`${API_URL}/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data));
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
-    }
-  };
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshUserData]);
   
   // Register new user
-  const register = async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -139,10 +145,10 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, router]);
   
   // Login user
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -165,18 +171,18 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, router]);
   
   // Logout user
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');
-  };
+  }, [router]);
   
   // Check if user is authenticated
-  const checkAuth = (): boolean => {
+  const checkAuth = useCallback((): boolean => {
     if (typeof window === 'undefined') return false;
     
     const token = localStorage.getItem('token');
@@ -189,26 +195,27 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       return false;
     }
-  };
+  }, []);
   
   // Clear error
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null);
-  };
+  }, []);
+  
+  // Memoize the context value to prevent unnecessary re-renders of consuming components
+  const contextValue = useMemo(() => ({
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    checkAuth,
+    error,
+    clearError
+  }), [user, loading, login, register, logout, checkAuth, error, clearError]);
   
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        register,
-        logout,
-        checkAuth,
-        error,
-        clearError
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

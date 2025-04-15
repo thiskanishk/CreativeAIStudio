@@ -7,6 +7,13 @@ import { AuthProvider } from '../context/AuthContext';
 import ThemeContextProvider from '../context/ThemeContext';
 import '../styles/globals.css';
 import 'react-toastify/dist/ReactToastify.css';
+import dynamic from 'next/dynamic';
+
+// Dynamically import ReactQueryDevtools to reduce initial bundle size
+const ReactQueryDevtoolsComponent = dynamic(
+  () => import('react-query/devtools').then(module => module.ReactQueryDevtools),
+  { ssr: false }
+);
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -14,6 +21,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 60 * 1000, // 1 minute stale time to reduce network requests
     },
   },
 });
@@ -41,7 +49,7 @@ export default function App({
             />
           </AuthProvider>
         </ThemeContextProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        <ReactQueryDevtoolsComponent initialIsOpen={false} />
       </QueryClientProvider>
     </SessionProvider>
   );
